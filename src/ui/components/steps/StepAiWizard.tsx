@@ -186,7 +186,7 @@ export function StepAiWizard() {
   const inputRef = useRef<HTMLInputElement>(null);
   const pendingConfigRef = useRef<Record<string, unknown> | null>(null);
 
-  // Pre-check: surface missing API key before the user types anything
+  // Pre-check: surface Codex CLI availability before the user types anything
   useEffect(() => {
     checkAiConfig({})
       .then((result: any) => {
@@ -581,7 +581,7 @@ export function StepAiWizard() {
             <div className="flex items-start gap-3">
               <AlertTriangle className="h-5 w-5 text-amber-500 dark:text-amber-400 shrink-0 mt-0.5" />
               <div className="space-y-1">
-                <p className="text-sm font-medium">API key missing</p>
+                <p className="text-sm font-medium">Codex CLI unavailable</p>
                 <p className="text-sm text-muted-foreground">{configWarning}</p>
               </div>
             </div>

@@ -1,5 +1,5 @@
 import { definePlugin, runWorker } from '@paperclipai/plugin-sdk';
-import { execFileSync } from 'node:child_process';
+import { execFileSync, spawn } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -16,7 +16,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 // --- Template loader ---
 
 const DEFAULT_TEMPLATES_REPO_URL =
-  'https://github.com/Yesterday-AI/paperclip-plugin-company-wizard/tree/main/templates';
+  'https://github.com/pax-k/paperclip-plugin-company-wizard-codex/tree/main/templates';
 const BUNDLED_TEMPLATES_DIR = path.resolve(__dirname, '..', 'templates');
 
 /** Recursively copy a directory (sync). */
@@ -80,7 +80,7 @@ function downloadTemplatesFromGithub(destDir: string, githubUrl: string): void {
  * Resolve (and if needed, create) the templates directory.
  * Resolution order:
  *  1. cfg.templatesPath if set → use it; auto-download if missing.
- *  2. Default: ~/.paperclip/plugin-templates → auto-download if missing.
+ *  2. Default: ~/.paperclip/plugin-templates-codex → auto-download if missing.
  *  3. Bundled templates (dist/../templates) as last resort.
  */
 async function ensureTemplatesDir(cfg: Record<string, string>): Promise<string> {
@@ -92,7 +92,7 @@ async function ensureTemplatesDir(cfg: Record<string, string>): Promise<string> 
     return cfg.templatesPath;
   }
 
-  const defaultDir = path.join(os.homedir(), '.paperclip', 'plugin-templates');
+  const defaultDir = path.join(os.homedir(), '.paperclip', 'plugin-templates-codex');
 
   if (fs.existsSync(defaultDir)) return defaultDir;
 
@@ -156,6 +156,183 @@ function formatRoleName(role: string): string {
     .join(' ');
 }
 
+function splitCommandArgs(input: string): string[] {
+  const args: string[] = [];
+  const re = /"([^"]*)"|'([^']*)'|\S+/g;
+  let match: RegExpExecArray | null;
+  while ((match = re.exec(input))) {
+    args.push(match[1] ?? match[2] ?? match[0]);
+  }
+  return args;
+}
+
+function stripAnsi(input: string): string {
+  return input.replace(/\x1b\[[0-9;?]*[ -/]*[@-~]/g, '');
+}
+
+function buildCodexPrompt(messages: any[], system?: string): string {
+  const normalized = Array.isArray(messages) ? messages : [];
+  const transcript = normalized
+    .map((msg) => {
+      const role = msg?.role === 'assistant' ? 'assistant' : 'user';
+      const content =
+        typeof msg?.content === 'string' ? msg.content : JSON.stringify(msg?.content ?? '');
+      return `<message role="${role}">\n${content}\n</message>`;
+    })
+    .join('\n\n');
+
+  return [
+    'You are the local Codex CLI backend for the Paperclip Company Wizard AI setup flow.',
+    'Follow the instructions in the <system> block exactly. Use the <conversation> transcript as the chat history.',
+    'Return only the next assistant message. Do not describe your execution environment or mention Codex unless the user explicitly asks.',
+    system ? `<system>\n${system}\n</system>` : '',
+    `<conversation>\n${transcript}\n</conversation>`,
+    'Now produce the next assistant message for the wizard.',
+  ]
+    .filter(Boolean)
+    .join('\n\n');
+}
+
+function unwrapActionParams(params: Record<string, unknown>): Record<string, unknown> {
+  const payload = params.payload;
+  if (payload && typeof payload === 'object' && !Array.isArray(payload)) {
+    return payload as Record<string, unknown>;
+  }
+  return params;
+}
+
+async function runCodexCompletion(
+  cfg: Record<string, unknown>,
+  params: Record<string, unknown>,
+): Promise<string> {
+  const codexCommand =
+    typeof cfg.codexCommand === 'string' && cfg.codexCommand.trim()
+      ? cfg.codexCommand.trim()
+      : process.env.CODEX_BIN || 'codex';
+  const codexModel = typeof cfg.codexModel === 'string' ? cfg.codexModel.trim() : '';
+  const codexExtraArgs =
+    typeof cfg.codexExtraArgs === 'string' ? splitCommandArgs(cfg.codexExtraArgs) : [];
+  const timeoutRaw = cfg.codexTimeoutMs;
+  const timeoutMs =
+    typeof timeoutRaw === 'number'
+      ? timeoutRaw
+      : typeof timeoutRaw === 'string' && timeoutRaw.trim()
+        ? Number(timeoutRaw)
+        : 300_000;
+  const safeTimeoutMs = Number.isFinite(timeoutMs) && timeoutMs > 0 ? timeoutMs : 300_000;
+  const cwd =
+    typeof cfg.codexCwd === 'string' && cfg.codexCwd.trim() ? cfg.codexCwd.trim() : os.homedir();
+  const outputFile = path.join(
+    os.tmpdir(),
+    `company-wizard-codex-${Date.now()}-${Math.random().toString(36).slice(2)}.txt`,
+  );
+
+  const args = [
+    'exec',
+    '--skip-git-repo-check',
+    '--sandbox',
+    'read-only',
+    '--ephemeral',
+    '--output-last-message',
+    outputFile,
+    ...(codexModel ? ['--model', codexModel] : []),
+    ...codexExtraArgs,
+    '-',
+  ];
+
+  const prompt = buildCodexPrompt(
+    (params.messages as any[]) ?? [],
+    params.system as string | undefined,
+  );
+
+  return await new Promise<string>((resolve, reject) => {
+    const child = spawn(codexCommand, args, {
+      cwd,
+      env: { ...process.env, NO_COLOR: '1' },
+      stdio: ['pipe', 'pipe', 'pipe'],
+    });
+
+    let stdout = '';
+    let stderr = '';
+    let finished = false;
+
+    const timer = setTimeout(() => {
+      if (finished) return;
+      finished = true;
+      child.kill('SIGTERM');
+      reject(
+        new Error(
+          `Codex timed out after ${safeTimeoutMs}ms. Increase codexTimeoutMs in plugin settings if needed.`,
+        ),
+      );
+    }, safeTimeoutMs);
+
+    child.stdout.on('data', (chunk) => {
+      stdout += chunk.toString();
+    });
+    child.stderr.on('data', (chunk) => {
+      stderr += chunk.toString();
+    });
+    child.on('error', (err) => {
+      if (finished) return;
+      finished = true;
+      clearTimeout(timer);
+      reject(new Error(`Failed to start Codex command "${codexCommand}": ${err.message}`));
+    });
+    child.on('close', (code) => {
+      if (finished) return;
+      finished = true;
+      clearTimeout(timer);
+      try {
+        const fileText = fs.existsSync(outputFile) ? fs.readFileSync(outputFile, 'utf-8') : '';
+        fs.rmSync(outputFile, { force: true });
+        const text = stripAnsi(fileText.trim() || stdout.trim());
+        if (code !== 0) {
+          const details = stripAnsi((stderr || stdout).trim()).slice(-2000);
+          reject(new Error(`Codex exited with code ${code}${details ? `: ${details}` : ''}`));
+          return;
+        }
+        if (!text) {
+          reject(new Error('Codex completed but returned an empty response.'));
+          return;
+        }
+        resolve(text);
+      } catch (err) {
+        reject(err instanceof Error ? err : new Error(String(err)));
+      }
+    });
+
+    child.stdin.end(prompt);
+  });
+}
+
+function checkCodexCli(cfg: Record<string, unknown>): {
+  ok: boolean;
+  error?: string;
+  version?: string;
+} {
+  const codexCommand =
+    typeof cfg.codexCommand === 'string' && cfg.codexCommand.trim()
+      ? cfg.codexCommand.trim()
+      : process.env.CODEX_BIN || 'codex';
+  try {
+    const output = execFileSync(codexCommand, ['--version'], {
+      encoding: 'utf-8',
+      timeout: 10_000,
+      stdio: ['ignore', 'pipe', 'pipe'],
+    }).trim();
+    return { ok: true, version: output };
+  } catch (err) {
+    return {
+      ok: false,
+      error:
+        `Codex CLI is not available via "${codexCommand}". ` +
+        `Install/login to Codex locally or set codexCommand in plugin settings. ` +
+        `${err instanceof Error ? err.message : String(err)}`,
+    };
+  }
+}
+
 // --- Plugin definition ---
 
 const plugin = definePlugin({
@@ -171,7 +348,7 @@ const plugin = definePlugin({
         const cfg = ((await ctx.config.get()) ?? {}) as Record<string, string>;
         const repoUrl = cfg.templatesRepoUrl || DEFAULT_TEMPLATES_REPO_URL;
         const targetDir =
-          cfg.templatesPath || path.join(os.homedir(), '.paperclip', 'plugin-templates');
+          cfg.templatesPath || path.join(os.homedir(), '.paperclip', 'plugin-templates-codex');
 
         if (fs.existsSync(targetDir)) {
           fs.rmSync(targetDir, { recursive: true, force: true });
@@ -288,42 +465,20 @@ const plugin = definePlugin({
       }
     });
 
-    // AI chat action — proxies messages to the Anthropic API using the configured key.
-    // Keeps the API key server-side; the UI never touches it directly.
+    // AI chat action — uses the local Codex CLI / subscription instead of Anthropic.
     // Returns { text, error? } — never throws, so the plugin host doesn't swallow the message in a 502.
     ctx.actions.register('ai-chat', async (params) => {
       try {
-        const cfg = ((await ctx.config.get()) ?? {}) as Record<string, string>;
-        const apiKey = cfg.anthropicApiKey || '';
-        if (!apiKey) {
-          return {
-            text: '',
-            error: 'Anthropic API key not configured. Add it in plugin settings (anthropicApiKey).',
-          };
+        const cfg = ((await ctx.config.get()) ?? {}) as Record<string, unknown>;
+        const check = checkCodexCli(cfg);
+        if (!check.ok) {
+          return { text: '', error: check.error };
         }
-
-        const response = await fetch('https://api.anthropic.com/v1/messages', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'x-api-key': apiKey,
-            'anthropic-version': '2023-06-01',
-          },
-          body: JSON.stringify({
-            model: 'claude-sonnet-4-20250514',
-            max_tokens: 8192,
-            ...(params.system ? { system: params.system } : {}),
-            messages: params.messages,
-          }),
-        });
-
-        if (!response.ok) {
-          const body = await response.text();
-          return { text: '', error: `Anthropic API error (${response.status}): ${body}` };
-        }
-
-        const data = (await response.json()) as { content?: { text: string }[] };
-        return { text: data.content?.[0]?.text || '' };
+        const text = await runCodexCompletion(
+          cfg,
+          unwrapActionParams(params as Record<string, unknown>),
+        );
+        return { text };
       } catch (err) {
         return { text: '', error: err instanceof Error ? err.message : String(err) };
       }
@@ -332,14 +487,8 @@ const plugin = definePlugin({
     // Lightweight config check — UI calls this on mount to show a warning before the user types.
     ctx.actions.register('check-ai-config', async () => {
       try {
-        const cfg = ((await ctx.config.get()) ?? {}) as Record<string, string>;
-        if (!cfg.anthropicApiKey) {
-          return {
-            ok: false,
-            error: 'Anthropic API key not configured. Add it in plugin settings (anthropicApiKey).',
-          };
-        }
-        return { ok: true };
+        const cfg = ((await ctx.config.get()) ?? {}) as Record<string, unknown>;
+        return checkCodexCli(cfg);
       } catch (err) {
         return { ok: false, error: err instanceof Error ? err.message : String(err) };
       }
@@ -499,7 +648,7 @@ const plugin = definePlugin({
           // Step 6: Resolve or create CEO agent
           const userCeoAdapter = (params.ceoAdapter as any) || {};
           const adapterType =
-            typeof userCeoAdapter.type === 'string' ? userCeoAdapter.type.trim() : 'claude_local';
+            typeof userCeoAdapter.type === 'string' ? userCeoAdapter.type.trim() : 'codex_local';
           const userCwd = typeof userCeoAdapter.cwd === 'string' ? userCeoAdapter.cwd.trim() : '';
           const userModel =
             typeof userCeoAdapter.model === 'string' ? userCeoAdapter.model.trim() : '';
@@ -508,8 +657,15 @@ const plugin = definePlugin({
             ...(assembleResult.roleAdapterOverrides?.get('ceo') ?? {}),
             cwd: userCwd || companyDir,
             instructionsFilePath: path.join(companyDir, 'agents', 'ceo', 'AGENTS.md'),
-            model: userModel || 'claude-opus-4-6',
           };
+
+          if (userModel) {
+            adapterConfig.model = userModel;
+          } else if (adapterType === 'claude_local') {
+            adapterConfig.model = 'claude-opus-4-6';
+          } else if (adapterType === 'codex_local') {
+            delete adapterConfig.model;
+          }
 
           if (adapterType === 'claude_local') {
             adapterConfig.dangerouslySkipPermissions = true;

@@ -8,6 +8,6 @@
   "description": "Implements features, fixes bugs, writes tests, manages git workflow.",
   "reportsTo": "ceo",
   "adapter": {
-    "model": "claude-sonnet-4-6"
+    "model": "codex-cli-default"
   }
 }

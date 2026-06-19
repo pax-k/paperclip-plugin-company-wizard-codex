@@ -12,6 +12,6 @@
     "Adds infrastructure review pass (with pr-review module)"
   ],
   "adapter": {
-    "model": "claude-sonnet-4-6"
+    "model": "codex-cli-default"
   }
 }

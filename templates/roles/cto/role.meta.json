@@ -12,7 +12,6 @@
     "Adds architecture review pass when pr-review module is active"
   ],
   "adapter": {
-    "model": "claude-opus-4-6",
-    "effort": "high"
+    "model": "codex-cli-default"
   }
 }

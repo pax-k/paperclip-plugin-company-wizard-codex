@@ -1,12 +1,12 @@
 import type { PaperclipPluginManifestV1 } from '@paperclipai/plugin-sdk';
 
 const manifest: PaperclipPluginManifestV1 = {
-  id: 'yesterday-ai.paperclip-plugin-company-wizard',
+  id: 'pax-k.paperclip-plugin-company-wizard-codex',
   apiVersion: 1,
-  version: '0.1.16',
-  displayName: 'Company Wizard',
-  description: 'AI-powered wizard to bootstrap agent companies from composable templates',
-  author: 'Yesterday',
+  version: '0.1.0',
+  displayName: 'Company Wizard Codex',
+  description: 'Codex-powered wizard to bootstrap agent companies from composable templates',
+  author: 'pax-k',
   categories: ['workspace', 'ui'],
   capabilities: [
     'companies.read',
@@ -34,20 +34,35 @@ const manifest: PaperclipPluginManifestV1 = {
       templatesPath: {
         type: 'string',
         description:
-          'Path to the templates directory. Defaults to ~/.paperclip/plugin-templates (auto-downloaded from templatesRepoUrl if missing). Override for Docker setups (e.g. /paperclip/plugin-templates).',
+          'Path to the templates directory. Defaults to ~/.paperclip/plugin-templates-codex (auto-downloaded from templatesRepoUrl if missing). Override for Docker setups (e.g. /paperclip/plugin-templates-codex).',
       },
       templatesRepoUrl: {
         type: 'string',
         default:
-          'https://github.com/Yesterday-AI/paperclip-plugin-company-wizard/tree/main/templates',
+          'https://github.com/pax-k/paperclip-plugin-company-wizard-codex/tree/main/templates',
         description:
           'GitHub tree URL to pull templates from when the templates directory does not exist.',
       },
-      anthropicApiKey: {
+      codexCommand: {
         type: 'string',
-        format: 'secret-ref',
+        default: 'codex',
         description:
-          'Anthropic API key for the AI wizard. Required to use the AI-powered company setup path.',
+          'Codex CLI command/path used by the AI wizard. Uses your local Codex subscription/login; no Anthropic API key is required.',
+      },
+      codexModel: {
+        type: 'string',
+        description:
+          'Optional Codex model override for the AI wizard. Leave blank to use your Codex CLI default.',
+      },
+      codexExtraArgs: {
+        type: 'string',
+        description:
+          'Optional extra arguments appended to codex exec, for example: --profile work.',
+      },
+      codexTimeoutMs: {
+        type: 'number',
+        default: 300000,
+        description: 'Maximum time to wait for a Codex AI wizard response, in milliseconds.',
       },
       paperclipUrl: {
         type: 'string',
@@ -79,15 +94,15 @@ const manifest: PaperclipPluginManifestV1 = {
     slots: [
       {
         type: 'page',
-        id: 'company-wizard',
-        displayName: 'Company Wizard',
+        id: 'company-wizard-codex',
+        displayName: 'Company Wizard Codex',
         exportName: 'WizardPage',
-        routePath: 'company-creator',
+        routePath: 'company-creator-codex',
       },
       {
         type: 'sidebar',
-        id: 'company-wizard-link',
-        displayName: 'Create Company',
+        id: 'company-wizard-codex-link',
+        displayName: 'Create Company (Codex)',
         exportName: 'SidebarLink',
       },
     ],

@@ -10,7 +10,7 @@ import { WizardProvider } from './context/WizardContext';
 import './index.css';
 import type { TemplateData } from './types';
 
-const PLUGIN_ID = 'yesterday-ai.paperclip-plugin-company-wizard';
+const PLUGIN_ID = 'pax-k.paperclip-plugin-company-wizard-codex';
 
 export function WizardPage(_props: PluginPageProps) {
   const { data: templates, loading, error } = usePluginData<TemplateData>('templates');
@@ -47,7 +47,7 @@ export function WizardPage(_props: PluginPageProps) {
 
 export function ToolbarButton({ context }: PluginWidgetProps) {
   const companyPrefix = (context as any).companyPrefix;
-  const href = companyPrefix ? `/${companyPrefix}/company-creator` : '#';
+  const href = companyPrefix ? `/${companyPrefix}/company-creator-codex` : '#';
 
   const handleClick = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -79,9 +79,9 @@ export function ToolbarButton({ context }: PluginWidgetProps) {
 }
 
 export function SidebarLink({ context }: PluginSidebarProps) {
-  const href = context.companyPrefix ? `/${context.companyPrefix}/company-creator` : '#';
+  const href = context.companyPrefix ? `/${context.companyPrefix}/company-creator-codex` : '#';
   const isActive =
-    typeof window !== 'undefined' && window.location.pathname.endsWith('/company-creator');
+    typeof window !== 'undefined' && window.location.pathname.endsWith('/company-creator-codex');
 
   const handleClick = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -110,7 +110,7 @@ export function SidebarLink({ context }: PluginSidebarProps) {
     >
       <Sparkles style={{ width: 16, height: 16, flexShrink: 0 }} />
       <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-        Create Company
+        Create Company (Codex)
       </span>
     </a>
   );

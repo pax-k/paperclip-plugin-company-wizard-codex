@@ -1,3 +1,9 @@
+# Company Wizard Codex
+
+This fork uses the local `codex` CLI / Codex subscription for the AI wizard path instead of requiring an Anthropic API key. It also defaults newly provisioned CEO agents to the `codex_local` adapter.
+
+---
+
 <p align="center">
   <img src="https://raw.githubusercontent.com/Yesterday-AI/paperclip-plugin-company-wizard/main/public/favicon.svg" alt="Company Wizard" width="48" height="48">
   <h1 align="center">Company Wizard</h1>
@@ -5,7 +11,7 @@
     <strong>Bootstrap AI agent teams from modular templates.</strong>
   </p>
   <p align="center">
-    <a href="https://www.npmjs.com/package/@yesterday-ai/paperclip-plugin-company-wizard"><img src="https://img.shields.io/npm/v/@yesterday-ai/paperclip-plugin-company-wizard?color=cb3837&label=npm" alt="npm version"></a>
+    <a href="https://www.npmjs.com/package/@pax-k/paperclip-plugin-company-wizard-codex"><img src="https://img.shields.io/npm/v/@pax-k/paperclip-plugin-company-wizard-codex?color=cb3837&label=npm" alt="npm version"></a>
     <a href="https://github.com/Yesterday-AI/paperclip-plugin-company-wizard/actions/workflows/ci.yml"><img src="https://github.com/Yesterday-AI/paperclip-plugin-company-wizard/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
     <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue" alt="License"></a>
     <a href="https://nodejs.org"><img src="https://img.shields.io/badge/node-%3E%3D20-brightgreen" alt="Node.js"></a>
@@ -21,7 +27,7 @@
 **npm package installation (Paperclip > Settings > Plugins > Install Plugin):**
 
 ```bash
-@yesterday-ai/paperclip-plugin-company-wizard
+@pax-k/paperclip-plugin-company-wizard-codex
 ```
 
 <br>
@@ -513,12 +519,15 @@ Configure the plugin via **Settings → Plugins → Company Wizard** in the Pape
 | Field | Required | Description |
 | --- | --- | --- |
 | `companiesDir` | No | Where assembled company workspaces are written. Defaults to `~/.paperclip/instances/default/companies`. Override for Docker setups. |
-| `templatesPath` | No | Path to the templates directory. Defaults to `~/.paperclip/plugin-templates` (auto-downloaded from `templatesRepoUrl` if missing). |
-| `templatesRepoUrl` | No | GitHub tree URL to pull templates from when the templates directory does not exist. Defaults to the official @Yesterday-AI/paperclip-plugin-company-wizard templates. |
+| `templatesPath` | No | Path to the templates directory. Defaults to `~/.paperclip/plugin-templates-codex` (auto-downloaded from `templatesRepoUrl` if missing). |
+| `templatesRepoUrl` | No | GitHub tree URL to pull templates from when the templates directory does not exist. Defaults to this fork’s templates. |
 | `paperclipUrl` | No | Paperclip instance URL. Defaults to `http://localhost:3100` or `PAPERCLIP_PUBLIC_URL` env var. |
 | `paperclipEmail` | No | Board login email. Required for authenticated (non-`local_trusted`) instances. |
 | `paperclipPassword` | No | Board login password. Stored as a secret ref. |
-| `anthropicApiKey` | No | Anthropic API key for AI wizard mode. Stored as a secret ref. Required to use the AI-powered setup path. |
+| `codexCommand` | No | Codex CLI command/path. Defaults to `codex`; uses your local Codex subscription/login. |
+| `codexModel` | No | Optional Codex model override. Leave blank to use your Codex CLI default. |
+| `codexExtraArgs` | No | Optional extra args for `codex exec`, for example `--profile work`. |
+| `codexTimeoutMs` | No | AI wizard timeout in milliseconds. Defaults to `300000`. |
 | `disableBoardApprovalOnNewCompanies` | No | If `true`, the wizard PATCHes new companies to set `requireBoardApprovalForNewAgents=false` during provisioning. Leave `false` to preserve approval-gated hiring. Defaults to `false`. |
 
 <br>

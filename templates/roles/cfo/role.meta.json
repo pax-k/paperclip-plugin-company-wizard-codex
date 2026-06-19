@@ -12,6 +12,6 @@
     "Monitors agent cost events and budget utilization"
   ],
   "adapter": {
-    "model": "claude-sonnet-4-6"
+    "model": "codex-cli-default"
   }
 }

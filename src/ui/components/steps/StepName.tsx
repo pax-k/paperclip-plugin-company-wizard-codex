@@ -6,8 +6,8 @@ import { useCallback, useState } from 'react';
 import { ChevronDown, ChevronRight, Settings2 } from 'lucide-react';
 
 const ADAPTER_TYPES = [
+  { value: 'codex_local', label: 'Codex', desc: 'Local Codex agent (recommended)' },
   { value: 'claude_local', label: 'Claude Code', desc: 'Local Claude agent' },
-  { value: 'codex_local', label: 'Codex', desc: 'Local Codex agent' },
   { value: 'opencode_local', label: 'OpenCode', desc: 'Local OpenCode agent' },
   { value: 'cursor', label: 'Cursor', desc: 'Cursor IDE agent' },
   { value: 'openclaw_gateway', label: 'OpenClaw', desc: 'OpenClaw gateway' },
@@ -126,7 +126,7 @@ export function StepName() {
                 Model <span className="text-muted-foreground font-normal">(optional)</span>
               </label>
               <Input
-                placeholder="Default"
+                placeholder="Default (Codex CLI default)"
                 value={state.ceoAdapter.model}
                 onChange={(e) =>
                   dispatch({ type: 'SET_CEO_ADAPTER', adapter: { model: e.target.value } })

@@ -1,8 +1,8 @@
 {
-  "name": "@yesterday-ai/paperclip-plugin-company-wizard",
-  "version": "0.1.16",
+  "name": "@pax-k/paperclip-plugin-company-wizard-codex",
+  "version": "0.1.0",
   "type": "module",
-  "description": "AI-powered wizard to bootstrap paperclip agent companies from composable templates",
+  "description": "Codex-powered Paperclip company wizard fork for bootstrapping agent companies from templates",
   "scripts": {
     "build": "node ./esbuild.config.mjs",
     "build:rollup": "rollup -c",
@@ -34,7 +34,7 @@
     "plugin",
     "workspace"
   ],
-  "author": "@lx-0 <https://github.com/lx-0>",
+  "author": "pax-k <https://github.com/pax-k>",
   "license": "MIT",
   "dependencies": {
     "class-variance-authority": "^0.7.1",
@@ -43,8 +43,8 @@
     "tailwind-merge": "^3.4.1"
   },
   "devDependencies": {
-    "@paperclipai/plugin-sdk": "2026.318.0",
-    "@paperclipai/shared": "2026.318.0",
+    "@paperclipai/plugin-sdk": "2026.618.0",
+    "@paperclipai/shared": "2026.618.0",
     "@rollup/plugin-node-resolve": "^16.0.1",
     "@rollup/plugin-typescript": "^12.1.2",
     "@tailwindcss/postcss": "^4.0.7",

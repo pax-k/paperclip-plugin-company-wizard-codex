@@ -11,6 +11,6 @@
     "Adds documentation review pass when pr-review module is active"
   ],
   "adapter": {
-    "model": "claude-sonnet-4-6"
+    "model": "codex-cli-default"
   }
 }
