@@ -879,21 +879,23 @@ const plugin = definePlugin({
             logPendingApproval(ceoAgent);
           }
 
-          // Step 7: Create bootstrap issue (SDK: ctx.issues.create ✓)
-          // BOOTSTRAP.md IS the bootstrap issue — read it directly.
+          // Step 7: Create bootstrap issue via HTTP client.
+          // Do not use ctx.issues.create here: plugin bridge invocations are scoped to
+          // the currently open company, but this wizard may have just created a new
+          // target company. The HTTP client is already used for company/agent creation
+          // and can create the bootstrap issue in the newly-created company.
           const bootstrapDescription = fs.readFileSync(
             path.join(companyDir, 'BOOTSTRAP.md'),
             'utf-8',
           );
 
           log('Creating bootstrap task for CEO...');
-          const issue = await ctx.issues.create({
-            companyId,
+          const issue = await client.createIssue(companyId, {
             title: `Bootstrap ${company.name || companyName}`,
             description: bootstrapDescription,
             assigneeAgentId: ceoAgentId,
+            status: 'todo',
           });
-          await ctx.issues.update(issue.id, { status: 'todo' }, companyId);
           bootstrapIssue = issue as { id: string; identifier?: string };
           log(`✓ Bootstrap task created: ${bootstrapIssue.identifier || bootstrapIssue.id}`);
         } catch (err) {

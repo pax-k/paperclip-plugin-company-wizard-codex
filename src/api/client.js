@@ -263,7 +263,7 @@ export class PaperclipClient {
 
   async createIssue(
     companyId,
-    { title, description, priority, projectId, goalId, assigneeAgentId, assigneeUserId },
+    { title, description, priority, status, projectId, goalId, assigneeAgentId, assigneeUserId },
   ) {
     return this._fetch(`/api/companies/${companyId}/issues`, {
       method: 'POST',
@@ -271,6 +271,7 @@ export class PaperclipClient {
         title,
         description: description || null,
         priority: priority || 'medium',
+        status: status || undefined,
         projectId: projectId || undefined,
         goalId: goalId || undefined,
         assigneeAgentId: assigneeAgentId || undefined,
