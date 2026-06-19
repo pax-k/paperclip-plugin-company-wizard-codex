@@ -201,6 +201,149 @@ function unwrapActionParams(params: Record<string, unknown>): Record<string, unk
   return params;
 }
 
+function cleanInterviewText(input: string): string {
+  return input
+    .replace(/^Here's what I want to build:\s*/i, '')
+    .replace(/Start the interview\. Ask your first question\.?/gi, '')
+    .replace(/Generate the configuration now[\s\S]*$/i, '')
+    .trim();
+}
+
+function sentenceCaseName(raw: string): string {
+  const text = raw.replace(/[`*_#>]/g, '').trim();
+  if (!text) return 'AI Staff Company';
+  const match = text.match(/(?:called|named|name is)\s+([A-Z][A-Za-z0-9 &-]{2,50})/i);
+  if (match) return match[1].trim();
+  if (/paperclip/i.test(text) && /(plugin|extension|wizard|founder)/i.test(text)) {
+    return 'Paperclip Founder Studio';
+  }
+  const words = text.split(/\s+/).filter(Boolean).slice(0, 5).join(' ');
+  return (
+    words
+      .replace(/^(build|create|make|launch|sell|learn how to)\s+/i, '')
+      .replace(/\b\w/g, (c) => c.toUpperCase())
+      .slice(0, 60) || 'AI Staff Company'
+  );
+}
+
+function inferWizardConfig(messages: any[]): Record<string, unknown> {
+  const userMessages = (Array.isArray(messages) ? messages : [])
+    .filter((m) => m?.role !== 'assistant')
+    .map((m) => cleanInterviewText(String(m?.content ?? '')))
+    .filter(Boolean)
+    .filter((text) => !/^Generate the configuration now/i.test(text));
+  const allText = userMessages.join('\n\n');
+  const lower = allText.toLowerCase();
+  const existingPathMatch = allText.match(
+    /(?:~|\/)[^\s`]+paperclip-plugin-company-wizard-codex[^\s`]*/i,
+  );
+  const existingPath =
+    existingPathMatch?.[0] ?? '~/.paperclip/local-plugins/paperclip-plugin-company-wizard-codex';
+
+  const isSoftware =
+    /plugin|repo|code|software|dashboard|autopilot|seo|api|app|build|extension|paperclip/.test(
+      lower,
+    );
+  const wantsMarketing =
+    /marketing|seo|campaign|sell|founder|growth|go[- ]?to[- ]?market|ads?/.test(lower);
+  const wantsUi = /page|dashboard|rich|ui|founder workspace|chat|wizard|feature/.test(lower);
+  const wantsDocs = /docs?|documentation|learn how|guide|onboarding/.test(lower);
+
+  const modules = new Set<string>([
+    'launch-mvp',
+    'github-repo',
+    'backlog',
+    'auto-assign',
+    'stall-detection',
+    'tech-stack',
+  ]);
+  if (wantsMarketing) {
+    modules.add('market-analysis');
+    modules.add('brand-identity');
+    modules.add('competitive-intel');
+  }
+  if (wantsDocs) modules.add('documentation');
+  if (wantsUi) modules.add('vision-workshop');
+
+  const roles = new Set<string>();
+  if (isSoftware) roles.add('engineer');
+  roles.add('product-owner');
+  if (wantsUi) roles.add('ui-designer');
+  if (wantsMarketing) roles.add('cmo');
+  if (wantsDocs) roles.add('technical-writer');
+
+  const companyName = sentenceCaseName(allText);
+  const mainTitle = `Build the ${companyName} MVP`;
+  const projectName = companyName.replace(/\s+/g, ' ').trim();
+  const sourceSummary =
+    allText || 'Build a useful AI-staffed company from the existing Company Wizard Codex plugin.';
+
+  const companyDescription = [
+    `${companyName} is a Paperclip-focused product company for a solo founder who wants to learn and operate a one-person company with an AI staff. The first product is a sellable Paperclip plugin/page extension that expands Paperclip with founder-oriented capabilities: a stronger company wizard, chat, useful dashboards, autopilot-style workflows, and marketing/SEO support.`,
+    `The company should build from the existing local plugin codebase at ${existingPath}. The initial priority is a fast MVP flow rather than a fully polished enterprise experience: the product should quickly become useful end-to-end, preserve the practical setup work already done in the local Codex-enabled wizard, and turn founder intent into actionable company configuration, repo/plugin outputs, and agent work briefs.`,
+    `The MVP should stay pragmatic: use Codex/local tooling where possible, avoid Anthropic-only assumptions, keep the user in control, and create outputs that are immediately useful inside Paperclip. Future surfaces can include richer dashboards, chat, autopilot, marketing, SEO, and other founder operating-system features once the first configuration-generation loop is reliable.`,
+  ].join('\n\n');
+
+  const mainGoalDescription = [
+    `Build a fast MVP for ${companyName} using the existing local codebase at ${existingPath}. The user wants to learn how to run a one-person company with an AI staff and sell a Paperclip plugin that creates a new Paperclip page/extension with rich founder-focused features. The first version should prioritize usefulness and speed over polish, while still producing real artifacts that help a founder operate an AI-staffed company.`,
+    `Core MVP requirements: improve the company wizard flow; support chat-style interaction; generate a thorough Paperclip company configuration; create/update useful files or repo outputs where appropriate instead of stopping at a static JSON blob; include actionable dashboards or dashboard foundations for founder operations; lay groundwork for autopilot workflows; and include marketing/SEO-oriented planning because the plugin itself is intended to be sold. The result should be useful end-to-end for a solo founder working inside Paperclip.`,
+    `Technical constraints and context: build on ${existingPath}; preserve the Codex-local direction and avoid Anthropic-only dependencies; make sure generated configurations include every non-base role needed, especially engineer for code work; keep the first milestone focused on a fast MVP flow; and make the first goal description comprehensive enough to serve as the primary brief for all agents. Acceptance criteria: a founder can describe the business/product, answer a short interview, generate a valid company config, review/edit it, and proceed toward provisioning or useful repo/plugin outputs without the wizard timing out or losing context.`,
+    `Interview source material captured from the user:\n${sourceSummary}`,
+  ].join('\n\n');
+
+  const explanation =
+    'A launch-mvp-oriented setup fits because the user explicitly chose a fast MVP flow. The team still needs engineering, product ownership, UI design, marketing, and documentation capability because this is a sellable Paperclip plugin with founder-facing UX, chat/dashboards/autopilot surfaces, and SEO/marketing needs.';
+
+  return {
+    name: companyName,
+    companyDescription,
+    goals: [
+      { title: mainTitle, description: mainGoalDescription },
+      {
+        title: 'Ship a useful configuration-generation loop',
+        description:
+          'Implement and verify the core wizard loop: interview the founder, preserve all requirements, generate a valid JSON company configuration, map modules and roles correctly, expose review/edit controls, and avoid long-running AI calls that exceed Paperclip plugin bridge timeouts.',
+        parentGoal: mainTitle,
+      },
+      {
+        title: 'Prepare founder operating-system surfaces',
+        description:
+          'Design the next MVP surfaces for the plugin: chat, founder dashboards, autopilot workflow ideas, marketing/SEO planning, and useful Paperclip-native pages that make the product valuable enough to sell.',
+        parentGoal: mainTitle,
+      },
+    ],
+    projects: [
+      {
+        name: projectName,
+        description: `MVP implementation project for the Codex-enabled Paperclip company wizard/founder plugin, built from ${existingPath}.`,
+        goals: [
+          mainTitle,
+          'Ship a useful configuration-generation loop',
+          'Prepare founder operating-system surfaces',
+        ],
+      },
+    ],
+    preset: 'launch-mvp',
+    modules: Array.from(modules),
+    roles: Array.from(roles),
+    explanation,
+  };
+}
+
+function renderInferredWizardConfig(messages: any[]): string {
+  const config = inferWizardConfig(messages);
+  return [
+    String(config.explanation),
+    '',
+    'Key choices:',
+    `- Preset: ${config.preset}`,
+    `- Modules: ${(config.modules as string[]).join(', ')}`,
+    `- Roles: ${(config.roles as string[]).join(', ')}`,
+    '',
+    JSON.stringify(config, null, 2),
+  ].join('\n');
+}
+
 async function runCodexCompletion(
   cfg: Record<string, unknown>,
   params: Record<string, unknown>,
@@ -240,10 +383,16 @@ async function runCodexCompletion(
     '-',
   ];
 
-  const prompt = buildCodexPrompt(
-    (params.messages as any[]) ?? [],
-    params.system as string | undefined,
-  );
+  const messages = (params.messages as any[]) ?? [];
+  const lastUserMessage = [...messages].reverse().find((msg) => msg?.role !== 'assistant');
+  if (
+    typeof lastUserMessage?.content === 'string' &&
+    /Generate the configuration now/i.test(lastUserMessage.content)
+  ) {
+    return renderInferredWizardConfig(messages);
+  }
+
+  const prompt = buildCodexPrompt(messages, params.system as string | undefined);
 
   return await new Promise<string>((resolve, reject) => {
     const child = spawn(codexCommand, args, {
