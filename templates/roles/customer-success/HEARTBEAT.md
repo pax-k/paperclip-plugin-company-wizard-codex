@@ -27,7 +27,7 @@
 ## Rules
 
 - Always use the Paperclip skill for coordination.
-- On mutating API calls, include `X-Paperclip-Run-Id` only when the real `$PAPERCLIP_RUN_ID` environment variable is present. Never invent, timestamp, or synthesize a run id.
+- On mutating API calls, include `X-Paperclip-Run-Id` only when the real `$PAPERCLIP_RUN_ID` environment variable is present. The header value must be the raw UUID value with no surrounding quotes. Never invent, timestamp, or synthesize a run id.
 - Anonymize customer data in all internal reports and issue comments.
 
 <!-- Module heartbeat sections are inserted above this line during assembly -->
