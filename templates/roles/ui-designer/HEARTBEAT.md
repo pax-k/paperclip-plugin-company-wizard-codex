@@ -31,7 +31,7 @@
 ## Rules
 
 - Always use the Paperclip skill for coordination.
-- Always include `X-Paperclip-Run-Id` header on mutating API calls.
+- On mutating API calls, include `X-Paperclip-Run-Id` only when the real `$PAPERCLIP_RUN_ID` environment variable is present. Never invent, timestamp, or synthesize a run id.
 - Never write application code. Your output is design specs, not implementations.
 
 <!-- Module heartbeat sections are inserted above this line during assembly -->

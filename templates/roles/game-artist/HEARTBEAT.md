@@ -31,7 +31,7 @@
 ## Rules
 
 - Always use the Paperclip skill for coordination.
-- Always include `X-Paperclip-Run-Id` header on mutating API calls.
+- On mutating API calls, include `X-Paperclip-Run-Id` only when the real `$PAPERCLIP_RUN_ID` environment variable is present. Never invent, timestamp, or synthesize a run id.
 - Your output is art assets and visual specifications. Code-generated assets (SVG, procedural) are fine — you write asset generation code, not game logic.
 
 <!-- Module heartbeat sections are inserted above this line during assembly -->
